@@ -5,12 +5,31 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "a2a-settlement"
 version = "0.9.0"
-description = "A2A Settlement Extension (SDK)"
+description = "Escrow-based payment settlement for the A2A protocol"
 readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.10"
+keywords = ["a2a", "settlement", "escrow", "agent", "payment"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries",
+]
 dependencies = [
   "httpx>=0.27",
 ]
+
+[project.urls]
+Homepage = "https://github.com/a2a-settlement/a2a-settlement"
+Repository = "https://github.com/a2a-settlement/a2a-settlement"
+Documentation = "https://github.com/a2a-settlement/a2a-settlement/tree/main/docs"
+Issues = "https://github.com/a2a-settlement/a2a-settlement/issues"
 
 [project.optional-dependencies]
 examples = [
