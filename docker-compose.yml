@@ -1,34 +1,90 @@
+version: "3.8"
+
+# Full-stack A2A Settlement ecosystem.
+# Run: docker compose up --build
+#
+# Services:
+#   exchange   — Core A2A Settlement Exchange (port 3000)
+#   dashboard  — Next.js admin dashboard (port 3001)
+#   mediator   — AI dispute mediator (port 3100)
+#   mcp        — MCP tool server (port 3200, SSE)
+
 services:
   exchange:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://a2a:a2a@postgres:5432/a2a_exchange
       A2A_EXCHANGE_HOST: "0.0.0.0"
       A2A_EXCHANGE_PORT: "3000"
       A2A_EXCHANGE_AUTO_CREATE_SCHEMA: "true"
-      A2A_EXCHANGE_FEE_PERCENT: "0.25"
-      A2A_EXCHANGE_STARTER_TOKENS: "100"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: a2a
-      POSTGRES_PASSWORD: a2a
-      POSTGRES_DB: a2a_exchange
+      A2A_EXCHANGE_OPERATOR_API_KEY: "${A2A_OPERATOR_API_KEY:-ate_operator_dev_key}"
+      A2A_EXCHANGE_DASHBOARD_API_KEY: "${A2A_DASHBOARD_API_KEY:-dashboard_dev_key}"
+      A2A_EXCHANGE_KYA_ENABLED: "false"
+      A2A_EXCHANGE_COMPLIANCE_ENABLED: "${A2A_COMPLIANCE_ENABLED:-false}"
+      # Optional: enable settlement auth
+      # A2A_EXCHANGE_SETTLEMENT_AUTH_ENABLED: "true"
+      # A2A_EXCHANGE_SETTLEMENT_AUTH_KEY: "your-jwt-secret"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - exchange-data:/app/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U a2a"]
-      interval: 5s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3000/health')"]
+      interval: 10s
       timeout: 5s
-      retries: 5
-    restart: unless-stopped
+      retries: 3
+
+  dashboard:
+    build:
+      context: ../a2a-settlement-dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      NEXT_PUBLIC_EXCHANGE_URL: "http://exchange:3000"
+      NEXT_PUBLIC_DASHBOARD_API_KEY: "${A2A_DASHBOARD_API_KEY:-dashboard_dev_key}"
+      NEXT_PUBLIC_USE_MOCK: "false"
+    depends_on:
+      exchange:
+        condition: service_healthy
+
+  mediator:
+    build:
+      context: ../a2a-settlement-mediator
+      dockerfile: Dockerfile
+    ports:
+      - "3100:3100"
+    environment:
+      A2A_EXCHANGE_URL: "http://exchange:3000/v1"
+      A2A_OPERATOR_API_KEY: "${A2A_OPERATOR_API_KEY:-ate_operator_dev_key}"
+      MEDIATOR_HOST: "0.0.0.0"
+      MEDIATOR_PORT: "3100"
+      MEDIATOR_LLM_MODEL: "${MEDIATOR_LLM_MODEL:-anthropic/claude-sonnet-4-20250514}"
+      MEDIATOR_AUTO_RESOLVE_THRESHOLD: "0.80"
+      MEDIATOR_AUDIT_LOG: "true"
+      MEDIATOR_DB_PATH: "/app/data/mediator.db"
+    volumes:
+      - mediator-data:/app/data
+    depends_on:
+      exchange:
+        condition: service_healthy
+
+  mcp:
+    build:
+      context: ../a2a-settlement-mcp
+      dockerfile: Dockerfile
+    ports:
+      - "3200:3200"
+    environment:
+      A2A_EXCHANGE_URL: "http://exchange:3000"
+      A2A_API_KEY: "${A2A_OPERATOR_API_KEY:-ate_operator_dev_key}"
+      A2A_MCP_TRANSPORT: "sse"
+      A2A_MCP_PORT: "3200"
+    depends_on:
+      exchange:
+        condition: service_healthy
 
 volumes:
-  pgdata:
+  exchange-data:
+  mediator-data:

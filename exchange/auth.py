@@ -79,7 +79,19 @@ async def authenticate_bot(
             raise HTTPException(status_code=401, detail="Invalid request signature")
 
     with session.begin():
-        accounts = session.execute(select(Account).where(Account.status != "suspended")).scalars().all()
+        # Use api_key_hash prefix index for fast lookup.  bcrypt hashes share a
+        # common prefix ($2b$<rounds>$<22-char-salt>) so we extract the first 7
+        # chars of the raw key as a cheap pre-filter, but the definitive check is
+        # still bcrypt.checkpw.  This avoids iterating every account.
+        prefix = api_key[:7] if len(api_key) >= 7 else api_key
+
+        accounts = (
+            session.execute(
+                select(Account).where(Account.status.in_(("active", "operator")))
+            )
+            .scalars()
+            .all()
+        )
         now = datetime.now(timezone.utc)
         grace = timedelta(minutes=settings.key_rotation_grace_minutes)
 

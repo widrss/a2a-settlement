@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, String, Text, func, text
+from sqlalchemy import CheckConstraint, JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -23,7 +23,7 @@ class Account(Base):
     developer_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     developer_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     contact_email: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    api_key_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    api_key_hash: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     previous_api_key_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     key_rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -48,6 +48,10 @@ class Account(Base):
     attestation_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     balance: Mapped["Balance"] = relationship(back_populates="account", uselist=False, cascade="all, delete-orphan")
+
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'suspended', 'operator')", name="ck_account_status"),
+    )
 
 
 class Balance(Base):

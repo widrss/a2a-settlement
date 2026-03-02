@@ -10,7 +10,7 @@ from fastapi import APIRouter, FastAPI
 from exchange.config import engine, settings
 from exchange.middleware import IdempotencyMiddleware, RequestIdMiddleware
 from exchange.models import Base
-from exchange.routes import accounts, kya_admin, settlement, stats, webhooks
+from exchange.routes import accounts, dashboard, kya_admin, settlement, stats, webhooks
 from exchange.schemas import HealthResponse
 from exchange.tasks import background_expiry_loop
 
@@ -82,6 +82,37 @@ def create_app() -> FastAPI:
     app.add_middleware(IdempotencyMiddleware)
     app.add_middleware(RequestIdMiddleware)
 
+    if settings.settlement_auth_enabled and settings.settlement_auth_key:
+        try:
+            from a2a_settlement_auth import SettlementMiddleware, SettlementAuthConfig
+
+            auth_config = SettlementAuthConfig(
+                verification_key=settings.settlement_auth_key,
+                issuer=settings.settlement_auth_issuer or None,
+                audience=settings.settlement_auth_audience,
+                exempt_paths={
+                    "/", "/health", "/docs", "/redoc", "/openapi.json",
+                    "/v1/stats", "/api/v1/stats",
+                    "/v1/accounts/register", "/api/v1/accounts/register",
+                    "/v1/accounts/directory", "/api/v1/accounts/directory",
+                },
+                exempt_prefixes=[
+                    "/.well-known/",
+                    "/v1/accounts/",
+                    "/api/v1/accounts/",
+                    "/v1/dashboard/", "/api/v1/dashboard/",
+                    "/v1/agents/", "/api/v1/agents/",
+                    "/v1/escrows/", "/api/v1/escrows/",
+                    "/v1/disputes/", "/api/v1/disputes/",
+                ],
+            )
+            app.add_middleware(SettlementMiddleware, config=auth_config)
+        except ImportError:
+            import logging
+            logging.getLogger("exchange").warning(
+                "A2A_EXCHANGE_SETTLEMENT_AUTH_ENABLED=true but a2a-settlement-auth is not installed"
+            )
+
     @app.get("/health", response_model=HealthResponse, tags=["Health"])
     def health() -> HealthResponse:
         return HealthResponse()
@@ -92,6 +123,7 @@ def create_app() -> FastAPI:
     api_router.include_router(stats.router)
     api_router.include_router(webhooks.router)
     api_router.include_router(kya_admin.router)
+    api_router.include_router(dashboard.router)
 
     app.include_router(api_router, prefix="/v1")
     app.include_router(api_router, prefix="/api/v1")

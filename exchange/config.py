@@ -90,6 +90,23 @@ class Settings:
     kya_operator_did: str = os.getenv("A2A_EXCHANGE_KYA_OPERATOR_DID", "did:web:exchange.a2a-settlement.org")
     kya_operator_private_key_path: str = os.getenv("A2A_EXCHANGE_KYA_OPERATOR_KEY_PATH", "")
 
+    # Operator API key — if set, a bootstrap operator account is created at startup
+    operator_api_key: str = os.getenv("A2A_EXCHANGE_OPERATOR_API_KEY", "")
+
+    # Dashboard operator key for admin endpoints
+    dashboard_api_key: str = os.getenv("A2A_EXCHANGE_DASHBOARD_API_KEY", "")
+
+    # Settlement auth middleware (a2a-settlement-auth integration)
+    settlement_auth_enabled: bool = _get_bool("A2A_EXCHANGE_SETTLEMENT_AUTH_ENABLED", False)
+    settlement_auth_key: str = os.getenv("A2A_EXCHANGE_SETTLEMENT_AUTH_KEY", "")
+    settlement_auth_issuer: str = os.getenv("A2A_EXCHANGE_SETTLEMENT_AUTH_ISSUER", "")
+    settlement_auth_audience: str = os.getenv(
+        "A2A_EXCHANGE_SETTLEMENT_AUTH_AUDIENCE", "https://exchange.a2a-settlement.org"
+    )
+
+    # Compliance audit (Merkle tree)
+    compliance_enabled: bool = _get_bool("A2A_EXCHANGE_COMPLIANCE_ENABLED", False)
+
 
 settings = Settings()
 

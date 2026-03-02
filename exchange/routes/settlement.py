@@ -35,6 +35,7 @@ from exchange.schemas import (
     TransactionItem,
     TransactionsResponse,
 )
+from exchange.compliance_log import log_settlement_event
 from exchange.spending_guard import SpendingLimitGuard
 from exchange.tasks import expire_stale_escrows as _expire_stale_escrows
 from exchange.webhooks import fire_webhook_event
@@ -339,6 +340,11 @@ def create_escrow(
         )
 
     fire_webhook_event(session, escrow, "escrow.created")
+    log_settlement_event(
+        escrow_id=escrow.id, event_type="escrow.created",
+        requester_id=current["id"], provider_id=req.provider_id,
+        amount=req.amount, status="held",
+    )
 
     return EscrowResponse(
         escrow_id=escrow.id,
@@ -431,6 +437,11 @@ def release(
             session.add(provider)
 
     fire_webhook_event(session, escrow, "escrow.released")
+    log_settlement_event(
+        escrow_id=req.escrow_id, event_type="escrow.released",
+        requester_id=escrow.requester_id, provider_id=escrow.provider_id,
+        amount=int(escrow.amount), status="released",
+    )
 
     return ReleaseResponse(
         escrow_id=req.escrow_id,
@@ -491,6 +502,11 @@ def refund(
         _auto_refund_dependents(session, escrow.id)
 
     fire_webhook_event(session, escrow, "escrow.refunded")
+    log_settlement_event(
+        escrow_id=req.escrow_id, event_type="escrow.refunded",
+        requester_id=escrow.requester_id, provider_id=escrow.provider_id,
+        amount=int(escrow.amount), status="refunded",
+    )
 
     return RefundResponse(
         escrow_id=req.escrow_id,
@@ -522,6 +538,12 @@ def dispute(
 
     fire_webhook_event(session, escrow, "escrow.disputed")
     fire_webhook_event(session, escrow, "escrow.dispute_pending_mediation")
+    log_settlement_event(
+        escrow_id=req.escrow_id, event_type="escrow.disputed",
+        requester_id=escrow.requester_id, provider_id=escrow.provider_id,
+        amount=int(escrow.amount), status="disputed",
+        dispute_reason=req.reason,
+    )
 
     return DisputeResponse(
         escrow_id=req.escrow_id,
@@ -627,6 +649,12 @@ def resolve(
                 session.add(provider)
 
     fire_webhook_event(session, escrow, "escrow.resolved")
+    log_settlement_event(
+        escrow_id=req.escrow_id, event_type="escrow.resolved",
+        requester_id=escrow.requester_id, provider_id=escrow.provider_id,
+        amount=int(escrow.amount), status=escrow.status,
+        resolution_strategy=req.strategy,
+    )
 
     if req.resolution == "release":
         return ResolveReleaseResponse(
