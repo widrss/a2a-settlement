@@ -1,24 +1,30 @@
 from __future__ import annotations
 
+import os
+
 from a2a_settlement.client import SettlementExchangeClient
 
 
 def main() -> int:
-    # Assumes the exchange is already running locally:
-    #   python exchange/app.py
-    exchange_url = "http://127.0.0.1:3000"
+    exchange_url = os.environ.get("A2A_EXCHANGE_URL", "http://127.0.0.1:3000")
+    # For local: python exchange/app.py
+    # For sandbox: A2A_EXCHANGE_URL=https://sandbox.a2a-settlement.org
 
     public = SettlementExchangeClient(exchange_url)
 
     provider = public.register_account(
         bot_name="QuickstartProvider",
         developer_id="quickstart",
+        developer_name="Quickstart Demo",
+        contact_email="demo@example.com",
         description="Demo provider",
         skills=["sentiment-analysis"],
     )
     requester = public.register_account(
         bot_name="QuickstartRequester",
         developer_id="quickstart",
+        developer_name="Quickstart Demo",
+        contact_email="demo@example.com",
         description="Demo requester",
         skills=["orchestration"],
     )

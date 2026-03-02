@@ -15,7 +15,22 @@ RequesterAgent  <---- A2A ---->  ProviderAgent
           escrow / release / refund
 ```
 
-## Get started in 60 seconds
+## Try the hosted sandbox (zero install)
+
+Test agent payments without running any infrastructure. The public sandbox at **https://sandbox.a2a-settlement.org** gives you starter credits on registration.
+
+```bash
+git clone https://github.com/widrss/a2a-settlement
+cd a2a-settlement
+pip install -e ./sdk
+A2A_EXCHANGE_URL=https://sandbox.a2a-settlement.org python examples/quickstart.py
+```
+
+You should see an escrow created and released, and balances updated. Registration is open; no API key needed beforehand — the quickstart registers two demo accounts and runs a full escrow cycle.
+
+## Get started in 60 seconds (local exchange)
+
+To run the exchange locally instead:
 
 ```bash
 git clone https://github.com/widrss/a2a-settlement
@@ -89,12 +104,34 @@ These three protocols address different layers of the agent payment stack. They 
 
 An agent can use all three: x402 gates discovery, AP2 negotiates terms, A2A-SE escrows the payment.
 
+## Security: The Zero-Trust Bridge
+
+The a2a-settlement bridge serves as the authoritative security layer between autonomous agents (LangGraph, CrewAI, LiteLLM) and sensitive infrastructure. It mitigates **Agent-on-Agent (A2A) attacks**—such as the hackerbot-claw exploit—by replacing static API permissions with dynamic, reputation-gated execution.
+
+### Core Security Primitives
+
+| Primitive | Description |
+|-----------|-------------|
+| **Reputation-Gated Execution (EMA)** | Every agent action is filtered through an Exponential Moving Average trust score. High-risk tools (Shell, PR Merge, Cloud Console) require a minimum $Rep_{EMA}$ threshold. A single logic dispute triggers an immediate reputation decay, isolating the agent before escalation. |
+| **Ephemeral AgentCards** | Replaces persistent environment variables with task-specific, cryptographically signed identities. These cards define a strict "Intent Scope"—any command execution outside this scope (e.g., unauthorized `curl` to metadata services) results in immediate credential revocation. |
+| **Security-Weighted CBS** | The Composite Bid Score (CBS) forces a trade-off between performance and security. For mission-critical tasks, the bridge prioritizes agents with high Verifiable Logic Proofs ($w_2$) over raw speed or cost. |
+| **Logic Verifiability Layer** | Before an action is committed to the bridge, the agent must submit a "pre-flight" logic proof. The settlement layer validates this against defined safety policies, preventing "hallucinated" or malicious privilege escalations. |
+
+### Defensive Mapping: a2a-settlement vs. hackerbot-claw
+
+| Threat Vector | a2a-settlement Mitigation |
+|---------------|---------------------------|
+| Privilege Escalation | EMA Thresholding prevents unvetted agents from accessing sudo/shell. |
+| Identity Hijacking | AgentCards ensure only the specific "Identified Agent" can execute the signed task. |
+| Payload Injection | Logic Proofs require the agent to declare intent before writing to a repo/pipeline. |
+| Lateral Movement | Settlement Isolation freezes an agent's status across the entire network upon a single dispute. |
+
 ## API documentation
 
-When the exchange is running, visit:
-- **Swagger UI**: http://localhost:3000/docs
-- **ReDoc**: http://localhost:3000/redoc
-- **OpenAPI JSON**: http://localhost:3000/openapi.json
+When the exchange is running (locally or sandbox), visit:
+- **Sandbox Swagger UI**: https://sandbox.a2a-settlement.org/docs
+- **Sandbox ReDoc**: https://sandbox.a2a-settlement.org/redoc
+- **Local**: http://localhost:3000/docs and http://localhost:3000/redoc
 
 Or see `openapi.yaml` in the repo root for the normative spec.
 
