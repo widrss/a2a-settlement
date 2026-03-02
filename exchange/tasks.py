@@ -35,10 +35,29 @@ def run_expiry_sweep() -> dict:
         with session.begin():
             results = _observer.sweep(session)
 
+        from exchange.compliance_log import log_settlement_event
+
         for escrow in results["expired_held"]:
             fire_webhook_event(session, escrow, "escrow.expired")
+            log_settlement_event(
+                escrow_id=escrow.id,
+                event_type="escrow.expired",
+                requester_id=escrow.requester_id,
+                provider_id=escrow.provider_id,
+                amount=int(escrow.amount),
+                status="expired",
+            )
         for escrow in results["expired_disputes"]:
             fire_webhook_event(session, escrow, "escrow.expired")
+            log_settlement_event(
+                escrow_id=escrow.id,
+                event_type="escrow.expired",
+                requester_id=escrow.requester_id,
+                provider_id=escrow.provider_id,
+                amount=int(escrow.amount),
+                status="expired",
+                dispute_reason=escrow.dispute_reason,
+            )
         for escrow in results["warned"]:
             fire_webhook_event(session, escrow, "escrow.expiring_soon")
 

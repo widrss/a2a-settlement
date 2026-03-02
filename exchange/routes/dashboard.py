@@ -38,28 +38,6 @@ def _require_operator(current: dict) -> None:
         raise HTTPException(status_code=403, detail="Dashboard endpoints require operator privileges")
 
 
-def _dashboard_auth(
-    authorization: str | None = Header(default=None),
-    session: Session = Depends(get_session),
-) -> dict:
-    """Authenticate via operator API key or dashboard API key."""
-    if settings.dashboard_api_key and authorization:
-        token = authorization.removeprefix("Bearer ").strip()
-        if token == settings.dashboard_api_key:
-            return {"id": "__dashboard__", "bot_name": "dashboard", "developer_id": "system", "status": "operator"}
-
-    from exchange.auth import authenticate_bot as _auth
-    # Fall through to normal auth and verify operator
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    from fastapi import Request as _Req
-    # We can't easily call the Depends chain here, so reuse the direct function
-    # by simulating the dependency.  For dashboard endpoints the operator key
-    # check above is the primary path.
-    raise HTTPException(status_code=401, detail="Invalid dashboard credentials. Set A2A_EXCHANGE_DASHBOARD_API_KEY.")
-
-
 # ---------------------------------------------------------------------------
 # Overview
 # ---------------------------------------------------------------------------
@@ -644,11 +622,30 @@ def revoke_token(
 ):
     """Revoke a settlement token by JTI.
 
-    This is a signal endpoint — actual revocation depends on the auth library's
-    SpendingStore. Recorded here for audit purposes.
+    If the SettlementMiddleware is active and has a SpendingTracker with
+    revocation support, the token is revoked there as well.
     """
     _check_dashboard_key(authorization)
-    return {"jti": jti, "status": "revoked"}
+
+    revoked_in_store = False
+    try:
+        from exchange.app import app as _app
+        for mw in getattr(_app, "user_middleware", []):
+            if hasattr(mw, "cls") and mw.cls.__name__ == "SettlementMiddleware":
+                import asyncio
+                tracker = None
+                for m in _app.middleware_stack.__dict__.get("app", _app).__dict__.values():
+                    if hasattr(m, "spending_tracker"):
+                        tracker = m.spending_tracker
+                        break
+                if tracker:
+                    asyncio.get_event_loop().run_until_complete(tracker.revoke(jti))
+                    revoked_in_store = True
+                break
+    except Exception:
+        pass
+
+    return {"jti": jti, "status": "revoked", "revoked_in_store": revoked_in_store}
 
 
 # ---------------------------------------------------------------------------
@@ -657,10 +654,12 @@ def revoke_token(
 
 
 def _check_dashboard_key(authorization: str | None) -> None:
-    if not settings.dashboard_api_key:
-        return
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
     token = authorization.removeprefix("Bearer ").strip()
-    if token != settings.dashboard_api_key:
-        raise HTTPException(status_code=403, detail="Invalid dashboard credentials")
+    if settings.dashboard_api_key:
+        if token == settings.dashboard_api_key:
+            return
+    if settings.operator_api_key and token == settings.operator_api_key:
+        return
+    raise HTTPException(status_code=403, detail="Invalid dashboard credentials")

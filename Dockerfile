@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml ./
 COPY exchange/ ./exchange/
 COPY sdk/ ./sdk/
+COPY compliance/ ./compliance/
 
 RUN pip install --no-cache-dir -e "./sdk" && \
     pip install --no-cache-dir -e ".[exchange]" && \

@@ -10,6 +10,7 @@ from exchange.config import get_session
 from exchange.models import Account, Balance, Escrow, Transaction
 from exchange.schemas import (
     StatsActivity,
+    StatsComplianceInfo,
     StatsNetworkInfo,
     StatsResponse,
     StatsTokenSupply,
@@ -45,6 +46,14 @@ def stats(session: Session = Depends(get_session)) -> StatsResponse:
     denom = int(total_supply) or 1
     velocity = float(tx_volume_24h) / float(denom)
 
+    from exchange.compliance_log import get_tree_status
+    compliance_data = get_tree_status()
+    compliance = StatsComplianceInfo(
+        enabled=compliance_data.get("enabled", False),
+        leaf_count=compliance_data.get("leaf_count", 0),
+        root_hash=compliance_data.get("root_hash"),
+    )
+
     return StatsResponse(
         network=StatsNetworkInfo(total_bots=int(total_bots), active_bots=int(active_bots)),
         token_supply=StatsTokenSupply(circulating=int(circulating), in_escrow=int(in_escrow), total=int(total_supply)),
@@ -55,4 +64,5 @@ def stats(session: Session = Depends(get_session)) -> StatsResponse:
         ),
         treasury=StatsTreasury(fees_collected=int(fees_collected)),
         active_escrows=int(active_escrows),
+        compliance=compliance,
     )

@@ -327,12 +327,19 @@ class StatsTreasury(BaseModel):
     fees_collected: int
 
 
+class StatsComplianceInfo(BaseModel):
+    enabled: bool = False
+    leaf_count: int = 0
+    root_hash: str | None = None
+
+
 class StatsResponse(BaseModel):
     network: StatsNetworkInfo
     token_supply: StatsTokenSupply
     activity_24h: StatsActivity
     treasury: StatsTreasury
     active_escrows: int
+    compliance: StatsComplianceInfo | None = None
 
 
 # --- KYA ---
