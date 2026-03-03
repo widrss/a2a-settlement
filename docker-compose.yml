@@ -7,6 +7,7 @@ version: "3.8"
 #   exchange   — Core A2A Settlement Exchange (port 3000)
 #   dashboard  — Next.js admin dashboard (port 3001)
 #   mediator   — AI dispute mediator (port 3100)
+#   shim       — Security Shim / Economic Air Gap proxy (port 3300)
 #   mcp        — MCP tool server (port 3200, SSE)
 
 services:
@@ -69,6 +70,32 @@ services:
     depends_on:
       exchange:
         condition: service_healthy
+
+  shim:
+    build:
+      context: .
+      dockerfile: Dockerfile.shim
+    ports:
+      - "3300:3300"
+    environment:
+      A2A_SHIM_HOST: "0.0.0.0"
+      A2A_SHIM_PORT: "3300"
+      A2A_EXCHANGE_URL: "http://exchange:3000"
+      A2A_EXCHANGE_API_KEY: "${A2A_OPERATOR_API_KEY:-ate_operator_dev_key}"
+      A2A_SHIM_VAULT_URL: ""
+      A2A_SHIM_VAULT_API_KEY: "${A2A_SHIM_VAULT_API_KEY:-}"
+      A2A_SHIM_DESTINATION_MODE: "${A2A_SHIM_DESTINATION_MODE:-allow}"
+      A2A_SHIM_DESTINATION_LIST: "${A2A_SHIM_DESTINATION_LIST:-}"
+      A2A_SHIM_DEFAULT_COST: "${A2A_SHIM_DEFAULT_COST:-1.0}"
+      A2A_SHIM_MAX_REQUEST_SIZE: "${A2A_SHIM_MAX_REQUEST_SIZE:-1048576}"
+    depends_on:
+      exchange:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3300/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   mcp:
     build:

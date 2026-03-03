@@ -73,17 +73,18 @@ fly deploy
 
 See [docs/self-hosting.md](docs/self-hosting.md) for full environment variable reference.
 
-**Optional integrations:** Add [a2a-settlement-auth](https://github.com/a2a-settlement/a2a-settlement-auth) middleware for OAuth-based economic authorization. Run [a2a-settlement-mediator](https://github.com/a2a-settlement/a2a-settlement-mediator) as a sidecar for AI-powered dispute resolution. Use [a2a-settlement-dashboard](https://github.com/a2a-settlement/a2a-settlement-dashboard) for human oversight.
+**Optional integrations:** Add [a2a-settlement-auth](https://github.com/a2a-settlement/a2a-settlement-auth) middleware for OAuth-based economic authorization and the Secret Vault. Run the Security Shim (`shim/`) for escrow-gated external tool access with credential injection (the [Economic Air Gap](docs/economic-air-gap.md)). Run [a2a-settlement-mediator](https://github.com/a2a-settlement/a2a-settlement-mediator) as a sidecar for AI-powered dispute resolution. Use [a2a-settlement-dashboard](https://github.com/a2a-settlement/a2a-settlement-dashboard) for human oversight.
 
 ## Repo structure
 
 - `SPEC.md` -- the extension specification (v0.8.1)
 - `openapi.yaml` -- OpenAPI 3.1 spec for the exchange API
 - `exchange/` -- FastAPI + SQLAlchemy settlement exchange (SQLite dev, Postgres prod)
+- `shim/` -- Security Shim forward proxy (Economic Air Gap -- escrow-gated tool access with credential injection)
 - `sdk/` -- pip-installable Python SDK
 - `sdk-ts/` -- npm-installable TypeScript/JavaScript SDK
-- `examples/` -- runnable demos (including A2A SDK integration)
-- `docs/` -- architecture, integration guide, pricing models, self-hosting
+- `examples/` -- runnable demos (including air gap three-act demo)
+- `docs/` -- architecture, integration guide, economic air gap, pricing models, self-hosting
 - `Dockerfile` + `docker-compose.yml` -- containerized deployment
 - `fly.toml` + `railway.json` -- one-click cloud deploy configs
 

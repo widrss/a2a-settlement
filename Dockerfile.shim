@@ -1,0 +1,12 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY shim/ shim/
+COPY requirements-shim.txt .
+
+RUN pip install --no-cache-dir -r requirements-shim.txt
+
+EXPOSE 3300
+
+CMD ["python", "-m", "shim.app"]

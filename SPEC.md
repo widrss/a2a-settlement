@@ -1184,7 +1184,93 @@ This section enumerates known threats and the mitigations A2A-SE provides.
 
 ---
 
-## 10. Adoption Path
+## 10. Economic Air Gap (Optional)
+
+The Economic Air Gap is an optional security layer that extends A2A-SE from agent-to-agent settlement to agent-to-external-API access control. It comprises two additional components that work alongside the core exchange.
+
+### 10.1. Secret Vault
+
+The Secret Vault (implemented in `a2a-settlement-auth`) provides encrypted credential storage so that agents never possess real API keys, PATs, or tokens.
+
+- Agents reference credentials by an opaque `secret_id` (e.g., `sec_github_deploy_abc123`).
+- Real values are encrypted at rest (Fernet / AES-128-CBC + HMAC-SHA256) and only decrypted at resolution time.
+- Resolution is an internal-only operation: only the Security Shim (or equivalent trusted service) may call `POST /secrets/resolve`. The agent runtime never has access.
+- Secrets are scoped to organizations and optionally restricted to specific agent IDs.
+- Every resolution attempt (successful or denied) is audit-logged with the requester identity, agent ID, escrow ID, and outcome.
+
+OAuth tokens MAY include an `allowed_secret_ids` claim in the `https://a2a-settlement.org/claims` namespace to further restrict which secrets a given agent token can reference.
+
+### 10.2. Security Shim
+
+The Security Shim is a fully optional forward proxy service. Operators who do not need credential isolation or escrow-gated tool access MAY skip it entirely; the existing A2A-SE escrow lifecycle works without it.
+
+When deployed, the shim:
+
+1. Accepts proxy requests from agents with either a `tool_id` (full air gap) or a `destination_url` (developer escape hatch).
+2. Validates the agent's auth token.
+3. Checks that the agent has an active, funded escrow and computes the cost via a pluggable cost model.
+4. Resolves the `secret_id` to the real credential via the vault's internal API.
+5. Injects the credential into the outbound request (as Bearer header, custom header, query parameter, or request body field).
+6. Forwards the request to the destination.
+7. Returns the response to the agent (credential never in the response).
+8. Records the cost deduction against the escrow.
+9. Writes an audit entry (escrow ID, agent ID, destination, method, secret ID, status code, cost).
+
+If the escrow balance is insufficient, the shim MUST return HTTP 402 Payment Required and MUST NOT forward the request.
+
+### 10.2.1. Tool Registry
+
+The shim maintains a registry of tool definitions mapping `tool_id` to destination URL, HTTP method, secret ID, injection method, and optional per-tool cost override. This enables the full air gap: agents use `tool_id` references and never see the real destination or credential.
+
+### 10.2.2. Cost Model
+
+The shim supports pluggable cost models:
+
+| Model | Description |
+|-------|-------------|
+| `flat-fee` | Every proxied call costs the same amount (default) |
+| `per-destination` | Cost varies by destination domain with a flat-fee fallback |
+| Custom | Implementors MAY subclass the cost model interface for time-based, payload-size, or other pricing |
+
+### 10.2.3. Destination Policy
+
+The shim supports two destination filtering modes:
+
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| `allow` | Default-allow with blocklist | Sandbox / development |
+| `deny` | Default-deny with allowlist | Production |
+
+---
+
+## 11. Audit-Ready by Default
+
+A2A-SE is the only agent infrastructure that is audit-ready by default. Every credential access, every proxied request, and every settlement produces immutable, timestamped, Merkle-backed records that chain into SEC 17a-4 WORM compliance.
+
+This is not a logging feature. It is a regulatory moat.
+
+### 11.1. What Gets Recorded
+
+| Event | Source | Record |
+|-------|--------|--------|
+| Escrow creation, release, refund, dispute, resolution | Exchange | Compliance Merkle tree leaf with attestation header, mandate binding, and mediation state |
+| Secret vault resolution (success or denial) | Vault | Audit entry with secret ID, resolver ID, agent ID, escrow ID, outcome, timestamp |
+| Proxied tool call (success, failure, 402 cutoff) | Shim | Audit entry with escrow ID, agent ID, destination, method, secret ID (not value), status code, cost |
+| Settlement finalization | Mediator | WORM-compliant record with RFC 3161 timestamp, Merkle proof, and arbitration mandate |
+
+### 11.2. Cryptographic Guarantees
+
+- All records are appended to a SHA-256 Merkle tree (RFC 6962). Leaves are append-only; existing leaves cannot be modified or deleted.
+- Settlement records are timestamped via an RFC 3161 Time Stamping Authority (TSA).
+- Merkle proofs provide cryptographic evidence that a specific event occurred at a specific time and has not been tampered with.
+
+### 11.3. Why This Matters for Enterprise
+
+When enterprise procurement asks "how do we prove what our agents did last Tuesday?", A2A-SE is the only agent infrastructure with a cryptographically verifiable answer out of the box. Every other agent framework treats audit as an afterthought. A2A-SE provides immutable, timestamped, Merkle-backed records of every credential access, every proxied request, and every settlement -- sufficient for SEC 17a-4, SOC 2, and regulatory compliance review.
+
+---
+
+## 12. Adoption Path
 
 ### For existing A2A agent developers:
 
@@ -1212,7 +1298,7 @@ Total integration effort: under 100 lines of code for either side.
 
 ---
 
-## 11. Sequence Diagrams
+## 13. Sequence Diagrams
 
 ### 11.1. Happy Path: Escrow, Task Completion, and Release
 
@@ -1357,7 +1443,7 @@ sequenceDiagram
 
 ---
 
-## 12. Relationship to A2A Core
+## 14. Relationship to A2A Core
 
 This extension is designed to be contributed to the A2A ecosystem. It does not modify, replace, or conflict with any core A2A operations, data model objects, or protocol bindings. It uses only officially sanctioned extension points:
 
@@ -1412,7 +1498,7 @@ A2A-SE can use AP2 as an upstream negotiation layer: AP2 negotiates the payment 
 
 ---
 
-## 13. Changelog
+## 15. Changelog
 
 ### v0.8.1 (2026-02-19)
 
