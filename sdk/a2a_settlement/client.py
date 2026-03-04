@@ -15,7 +15,9 @@ def _join(base_url: str, path: str) -> str:
     return base_url.rstrip("/") + "/" + path.lstrip("/")
 
 
-def sign_request(api_key: str, method: str, path: str, body: bytes | None = None) -> dict[str, str]:
+def sign_request(
+    api_key: str, method: str, path: str, body: bytes | None = None
+) -> dict[str, str]:
     """Produce X-A2A-Signature and X-A2A-Timestamp headers for request signing."""
     timestamp = str(int(time.time()))
     message = f"{timestamp}{method.upper()}{path}".encode("utf-8") + (body or b"")
@@ -51,18 +53,28 @@ class SettlementExchangeClient:
             h.update(sign_request(self.api_key, method, path, body))
         return h
 
-    def _post(self, url: str, payload: dict[str, Any], *, idempotency_key: str | None = None) -> dict[str, Any]:
+    def _post(
+        self, url: str, payload: dict[str, Any], *, idempotency_key: str | None = None
+    ) -> dict[str, Any]:
         from urllib.parse import urlparse
+
         body = json.dumps(payload).encode("utf-8")
         path = urlparse(url).path
-        headers = self._headers(idempotency_key=idempotency_key, method="POST", path=path, body=body)
+        headers = self._headers(
+            idempotency_key=idempotency_key, method="POST", path=path, body=body
+        )
         with httpx.Client(timeout=self.timeout_s) as c:
-            r = c.post(url, content=body, headers={**headers, "Content-Type": "application/json"})
+            r = c.post(
+                url,
+                content=body,
+                headers={**headers, "Content-Type": "application/json"},
+            )
             r.raise_for_status()
             return r.json()
 
     def _get(self, url: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
         from urllib.parse import urlparse
+
         path = urlparse(url).path
         headers = self._headers(method="GET", path=path)
         with httpx.Client(timeout=self.timeout_s) as c:
@@ -72,16 +84,22 @@ class SettlementExchangeClient:
 
     def _put(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
         from urllib.parse import urlparse
+
         body = json.dumps(payload).encode("utf-8")
         path = urlparse(url).path
         headers = self._headers(method="PUT", path=path, body=body)
         with httpx.Client(timeout=self.timeout_s) as c:
-            r = c.put(url, content=body, headers={**headers, "Content-Type": "application/json"})
+            r = c.put(
+                url,
+                content=body,
+                headers={**headers, "Content-Type": "application/json"},
+            )
             r.raise_for_status()
             return r.json()
 
     def _delete(self, url: str) -> dict[str, Any]:
         from urllib.parse import urlparse
+
         path = urlparse(url).path
         headers = self._headers(method="DELETE", path=path)
         with httpx.Client(timeout=self.timeout_s) as c:
@@ -90,7 +108,10 @@ class SettlementExchangeClient:
             return r.json()
 
     def _client(self, *, idempotency_key: str | None = None) -> httpx.Client:
-        return httpx.Client(timeout=self.timeout_s, headers=self._headers(idempotency_key=idempotency_key))
+        return httpx.Client(
+            timeout=self.timeout_s,
+            headers=self._headers(idempotency_key=idempotency_key),
+        )
 
     # --- Accounts ---
 
@@ -121,7 +142,9 @@ class SettlementExchangeClient:
             payload["daily_spend_limit"] = daily_spend_limit
         return self._post(url, payload, idempotency_key=idempotency_key)
 
-    def directory(self, *, skill: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    def directory(
+        self, *, skill: str | None = None, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
         url = _join(self.base_url, "/v1/accounts/directory")
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if skill:
@@ -143,7 +166,9 @@ class SettlementExchangeClient:
 
     # --- Webhooks ---
 
-    def set_webhook(self, *, url: str, events: list[str] | None = None) -> dict[str, Any]:
+    def set_webhook(
+        self, *, url: str, events: list[str] | None = None
+    ) -> dict[str, Any]:
         """Register or update webhook URL."""
         endpoint = _join(self.base_url, "/v1/accounts/webhook")
         payload: dict[str, Any] = {"url": url}
@@ -183,6 +208,7 @@ class SettlementExchangeClient:
         group_id: str | None = None,
         depends_on: list[str] | None = None,
         deliverables: list[dict[str, Any]] | None = None,
+        required_attestation_level: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         url = _join(self.base_url, "/v1/exchange/escrow")
@@ -199,13 +225,39 @@ class SettlementExchangeClient:
             payload["depends_on"] = depends_on
         if deliverables is not None:
             payload["deliverables"] = deliverables
+        if required_attestation_level is not None:
+            payload["required_attestation_level"] = required_attestation_level
         return self._post(url, payload, idempotency_key=idempotency_key)
 
-    def release_escrow(self, *, escrow_id: str, idempotency_key: str | None = None) -> dict[str, Any]:
-        url = _join(self.base_url, "/v1/exchange/release")
-        return self._post(url, {"escrow_id": escrow_id}, idempotency_key=idempotency_key)
+    def deliver(
+        self,
+        *,
+        escrow_id: str,
+        content: str,
+        provenance: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Submit a deliverable (with optional provenance) against a held escrow."""
+        url = _join(self.base_url, f"/v1/exchange/escrow/{escrow_id}/deliver")
+        payload: dict[str, Any] = {"content": content}
+        if provenance is not None:
+            payload["provenance"] = provenance
+        return self._post(url, payload)
 
-    def refund_escrow(self, *, escrow_id: str, reason: str | None = None, idempotency_key: str | None = None) -> dict[str, Any]:
+    def release_escrow(
+        self, *, escrow_id: str, idempotency_key: str | None = None
+    ) -> dict[str, Any]:
+        url = _join(self.base_url, "/v1/exchange/release")
+        return self._post(
+            url, {"escrow_id": escrow_id}, idempotency_key=idempotency_key
+        )
+
+    def refund_escrow(
+        self,
+        *,
+        escrow_id: str,
+        reason: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         url = _join(self.base_url, "/v1/exchange/refund")
         payload: dict[str, Any] = {"escrow_id": escrow_id}
         if reason is not None:
@@ -216,11 +268,20 @@ class SettlementExchangeClient:
         url = _join(self.base_url, "/v1/exchange/dispute")
         return self._post(url, {"escrow_id": escrow_id, "reason": reason})
 
-    def resolve_escrow(self, *, escrow_id: str, resolution: str, strategy: str | None = None) -> dict[str, Any]:
+    def resolve_escrow(
+        self,
+        *,
+        escrow_id: str,
+        resolution: str,
+        strategy: str | None = None,
+        provenance_result: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         url = _join(self.base_url, "/v1/exchange/resolve")
         body: dict[str, Any] = {"escrow_id": escrow_id, "resolution": resolution}
         if strategy is not None:
             body["strategy"] = strategy
+        if provenance_result is not None:
+            body["provenance_result"] = provenance_result
         return self._post(url, body)
 
     def get_balance(self) -> dict[str, Any]:

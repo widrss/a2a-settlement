@@ -1,0 +1,31 @@
+name: Data Retrieval
+description: Tasks that require fetching data from external APIs
+attestation_level: self_declared
+escrow_amount: 50
+
+tasks:
+  - id: github-commits
+    type: data-retrieval
+    description: Retrieve recent commits from a public GitHub repository
+    params:
+      repo: google/A2A
+      per_page: 5
+
+  - id: github-issues
+    type: data-retrieval
+    description: Retrieve open issues from a GitHub repository
+    params:
+      repo: google/A2A
+      per_page: 5
+
+  - id: public-api-data
+    type: data-retrieval
+    description: Retrieve data from a public API endpoint
+    params:
+      uri: https://httpbin.org/json
+
+  - id: web-content
+    type: data-retrieval
+    description: Extract content from a public web page
+    params:
+      url: https://httpbin.org/html

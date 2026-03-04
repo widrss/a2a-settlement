@@ -1,0 +1,17 @@
+name: Document Summary
+description: Tasks that require summarizing documents or web content
+attestation_level: self_declared
+escrow_amount: 30
+
+tasks:
+  - id: web-summary
+    type: document-summary
+    description: Summarize content from a public web page
+    params:
+      url: https://httpbin.org/html
+
+  - id: api-summary
+    type: document-summary
+    description: Summarize data from a public API response
+    params:
+      uri: https://httpbin.org/json

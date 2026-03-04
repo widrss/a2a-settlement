@@ -3,6 +3,8 @@ import type {
   BalanceResponse,
   BatchEscrowRequest,
   BatchEscrowResponse,
+  DeliverRequest,
+  DeliverResponse,
   DirectoryResponse,
   DisputeResponse,
   EscrowDetailResponse,
@@ -226,6 +228,17 @@ export class SettlementExchangeClient {
     });
   }
 
+  async deliver(
+    escrowId: string,
+    req: DeliverRequest,
+  ): Promise<DeliverResponse> {
+    return this.request(
+      "POST",
+      `/v1/exchange/escrow/${escrowId}/deliver`,
+      req,
+    );
+  }
+
   async releaseEscrow(
     escrowId: string,
     idempotencyKey?: string,
@@ -265,12 +278,15 @@ export class SettlementExchangeClient {
   async resolveEscrow(
     escrowId: string,
     resolution: "release" | "refund",
-    options?: { strategy?: string },
+    options?: { strategy?: string; provenance_result?: Record<string, unknown> },
   ): Promise<ResolveResponse> {
     return this.request("POST", "/v1/exchange/resolve", {
       escrow_id: escrowId,
       resolution,
       ...(options?.strategy != null && { strategy: options.strategy }),
+      ...(options?.provenance_result != null && {
+        provenance_result: options.provenance_result,
+      }),
     });
   }
 

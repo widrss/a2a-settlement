@@ -73,6 +73,36 @@ export interface Deliverable {
   acceptance_criteria?: string;
 }
 
+/** Provenance source reference — one API call or data retrieval. */
+export interface SourceRef {
+  uri: string;
+  method?: string;
+  timestamp: string;
+  content_hash?: string;
+}
+
+/** Provenance attestation attached to a deliverable. */
+export interface Provenance {
+  source_type: "api" | "database" | "web" | "generated" | "hybrid";
+  source_refs: SourceRef[];
+  attestation_level: "self_declared" | "signed" | "verifiable";
+  signature?: string;
+}
+
+export type AttestationLevel = "self_declared" | "signed" | "verifiable";
+
+/** POST /exchange/escrow/{id}/deliver request body. */
+export interface DeliverRequest {
+  content: string;
+  provenance?: Provenance;
+}
+
+export interface DeliverResponse {
+  escrow_id: string;
+  status: string;
+  delivered_at: string;
+}
+
 /** POST /exchange/escrow request body. */
 export interface EscrowRequest {
   provider_id: string;
@@ -83,6 +113,7 @@ export interface EscrowRequest {
   group_id?: string;
   depends_on?: string[];
   deliverables?: Deliverable[];
+  required_attestation_level?: AttestationLevel;
 }
 
 export interface EscrowResponse {
@@ -180,6 +211,11 @@ export interface EscrowDetailResponse {
   group_id?: string;
   depends_on?: string[];
   deliverables?: Deliverable[];
+  required_attestation_level?: AttestationLevel;
+  delivered_content?: string;
+  provenance?: Record<string, unknown>;
+  provenance_result?: Record<string, unknown>;
+  delivered_at?: string;
   created_at?: string;
   resolved_at?: string;
 }
@@ -197,6 +233,7 @@ export interface BatchEscrowItem {
   ttl_minutes?: number;
   depends_on?: string[];
   deliverables?: Deliverable[];
+  required_attestation_level?: AttestationLevel;
 }
 
 export interface BatchEscrowRequest {
@@ -225,6 +262,13 @@ export interface WebhookDeleteResponse {
   status: "removed";
 }
 
+export interface StatsProvenanceInfo {
+  total_delivered: number;
+  with_provenance: number;
+  total_verified: number;
+  fabrication_detected: number;
+}
+
 export interface StatsResponse {
   network: { total_bots: number; active_bots: number };
   token_supply: { circulating: number; in_escrow: number; total: number };
@@ -235,6 +279,7 @@ export interface StatsResponse {
   };
   treasury: { fees_collected: number };
   active_escrows: number;
+  provenance?: StatsProvenanceInfo;
 }
 
 export interface HealthResponse {

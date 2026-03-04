@@ -9,6 +9,26 @@ class Deliverable(TypedDict, total=False):
     acceptance_criteria: str
 
 
+class SourceRef(TypedDict, total=False):
+    uri: str
+    method: str
+    timestamp: str
+    content_hash: str
+
+
+class Provenance(TypedDict, total=False):
+    source_type: str
+    source_refs: list[SourceRef]
+    attestation_level: str
+    signature: str
+
+
+class DeliverResponse(TypedDict, total=False):
+    escrow_id: str
+    status: str
+    delivered_at: str
+
+
 class RegisterResponse(TypedDict, total=False):
     message: str
     account: dict[str, Any]

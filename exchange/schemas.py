@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -48,7 +49,9 @@ class RegisterAccountInfo(BaseModel):
 
 
 class RegisterResponse(BaseModel):
-    message: str = "Bot registered successfully. Save your API key - it will not be shown again."
+    message: str = (
+        "Bot registered successfully. Save your API key - it will not be shown again."
+    )
     account: RegisterAccountInfo
     api_key: str
     starter_tokens: int
@@ -125,6 +128,23 @@ class Deliverable(BaseModel):
     acceptance_criteria: str | None = None
 
 
+class SourceRef(BaseModel):
+    uri: str
+    method: str | None = None
+    timestamp: datetime
+    content_hash: str | None = None
+
+
+class Provenance(BaseModel):
+    source_type: Literal["api", "database", "web", "generated", "hybrid"]
+    source_refs: list[SourceRef] = []
+    attestation_level: Literal["self_declared", "signed", "verifiable"]
+    signature: str | None = None
+
+
+AttestationLevel = Literal["self_declared", "signed", "verifiable"]
+
+
 class EscrowRequest(BaseModel):
     provider_id: str
     amount: int
@@ -134,6 +154,7 @@ class EscrowRequest(BaseModel):
     group_id: str | None = None
     depends_on: list[str] | None = None
     deliverables: list[Deliverable] | None = None
+    required_attestation_level: AttestationLevel | None = None
 
 
 class EscrowResponse(BaseModel):
@@ -184,10 +205,22 @@ class DisputeResponse(BaseModel):
     reason: str
 
 
+class DeliverRequest(BaseModel):
+    content: str
+    provenance: Provenance | None = None
+
+
+class DeliverResponse(BaseModel):
+    escrow_id: str
+    status: str
+    delivered_at: datetime
+
+
 class ResolveRequest(BaseModel):
     escrow_id: str
     resolution: str
     strategy: str | None = None
+    provenance_result: dict | None = None
 
 
 class ResolveReleaseResponse(BaseModel):
@@ -249,6 +282,11 @@ class EscrowDetailResponse(BaseModel):
     group_id: str | None = None
     depends_on: list[str] | None = None
     deliverables: list[Deliverable] | None = None
+    required_attestation_level: str | None = None
+    delivered_content: str | None = None
+    provenance: dict | None = None
+    provenance_result: dict | None = None
+    delivered_at: datetime | None = None
     created_at: datetime | None = None
     resolved_at: datetime | None = None
 
@@ -266,6 +304,7 @@ class BatchEscrowItem(BaseModel):
     ttl_minutes: int | None = None
     depends_on: list[str] | None = None
     deliverables: list[Deliverable] | None = None
+    required_attestation_level: AttestationLevel | None = None
 
 
 class BatchEscrowRequest(BaseModel):
@@ -333,6 +372,13 @@ class StatsComplianceInfo(BaseModel):
     root_hash: str | None = None
 
 
+class StatsProvenanceInfo(BaseModel):
+    total_delivered: int = 0
+    with_provenance: int = 0
+    total_verified: int = 0
+    fabrication_detected: int = 0
+
+
 class StatsResponse(BaseModel):
     network: StatsNetworkInfo
     token_supply: StatsTokenSupply
@@ -340,6 +386,7 @@ class StatsResponse(BaseModel):
     treasury: StatsTreasury
     active_escrows: int
     compliance: StatsComplianceInfo | None = None
+    provenance: StatsProvenanceInfo | None = None
 
 
 # --- KYA ---
